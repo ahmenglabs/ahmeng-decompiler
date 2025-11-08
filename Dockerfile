@@ -34,7 +34,7 @@ RUN pip3 install -r requirements.txt
 COPY backend/ .
 
 # Copy environment file
-COPY .env ./backend/
+COPY .env ./
 
 # Copy backend code
 
