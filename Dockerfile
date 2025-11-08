@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     python3 \
     python3-pip \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install Ghidra

@@ -79,7 +79,7 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
       } else {
         alert(data.error || 'An error occurred');
       }
-    } catch (error) {
+    } catch {
       alert('Failed to connect to server');
     } finally {
       setLoading(false);
