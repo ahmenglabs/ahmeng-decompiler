@@ -117,6 +117,8 @@ def decompile():
     temp_dir = tempfile.mkdtemp()
 
     try:
+        threads = []
+        
         for file in files:
             if file:  # Removed extension check
                 filename = secure_filename(file.filename)
@@ -128,7 +130,7 @@ def decompile():
                 os.makedirs(output_dir, exist_ok=True)
 
                 # Decompile in background thread
-                def process_file():
+                def process_file(filename=filename, file_path=file_path, output_dir=output_dir):
                     stdout, stderr, returncode = decompile_with_ghidra(file_path, output_dir)
                     
                     # Look for the decompiled file
@@ -157,10 +159,16 @@ def decompile():
                             break
                     
                     if decompiled_code and len(decompiled_code.strip()) > 0:
+                        # Get file sizes
+                        input_size = os.path.getsize(file_path)
+                        output_size = len(decompiled_code.encode('utf-8'))
+                        
                         results.append({
                             'filename': filename,
                             'status': 'success',
-                            'decompiled_code': decompiled_code
+                            'decompiled_code': decompiled_code,
+                            'input_size': input_size,
+                            'output_size': output_size
                         })
                     else:
                         error_msg = f"Decompiled file not found. Searched in: {output_dir}\n"
@@ -174,7 +182,11 @@ def decompile():
 
                 thread = threading.Thread(target=process_file)
                 thread.start()
-                thread.join()  # Wait for completion
+                threads.append(thread)
+
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
 
         # Clean up uploaded files
         shutil.rmtree(temp_dir)

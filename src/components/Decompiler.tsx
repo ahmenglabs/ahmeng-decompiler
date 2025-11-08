@@ -8,6 +8,8 @@ interface DecompileResult {
   status: "success" | "error";
   decompiled_code?: string;
   error?: string;
+  input_size?: number;
+  output_size?: number;
 }
 
 interface DecompilerProps {
@@ -253,16 +255,28 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
               <Card key={index}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle
-                      className={
-                        result.status === "error"
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }
-                    >
-                      {result.filename} -{" "}
-                      {result.status === "success" ? "Success" : "Error"}
-                    </CardTitle>
+                    <div className="flex flex-col gap-1">
+                      <CardTitle
+                        className={
+                          result.status === "error"
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }
+                      >
+                        {result.filename} -{" "}
+                        {result.status === "success" ? "Success" : "Error"}
+                      </CardTitle>
+                      {result.status === "success" && result.input_size && result.output_size && (
+                        <div className="flex gap-4 text-sm text-gray-600">
+                          <span>
+                            Input: {(result.input_size / 1024 / 1024).toFixed(2)} MB
+                          </span>
+                          <span>
+                            Output: {(result.output_size / 1024 / 1024).toFixed(2)} MB
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       {result.status === "success" && result.decompiled_code && (
                         <Button

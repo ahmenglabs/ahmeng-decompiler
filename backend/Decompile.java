@@ -135,11 +135,75 @@ public class Decompile extends GhidraScript {
         ghidra.app.decompiler.DecompInterface decomp = new ghidra.app.decompiler.DecompInterface();
         decomp.openProgram(currentProgram);
 
-        // Decompile all functions
+        // Filter functions - only decompile relevant ones for CTF
         FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
+        Set<String> skipPrefixes = new HashSet<>(Arrays.asList(
+            "_init", "_fini", "_start", "__libc", "__cxa", "frame_dummy", 
+            "register_tm_clones", "deregister_tm_clones", "__do_global",
+            "_dl_", "__stack_chk", "__assert", "_ITM_", "__gmon", "asan.",
+            "__sanitizer", "__tsan", "FUN_", "thunk_", "__x86.", "__i686."
+        ));
+        
+        Set<String> skipSuffixes = new HashSet<>(Arrays.asList(
+            ".plt", ".got", "@plt", "@GLIBC", ".isra", ".part", ".cold"
+        ));
+        
+        Set<String> keepFunctions = new HashSet<>(Arrays.asList(
+            "main", "vuln", "win", "flag", "check", "validate", "auth",
+            "login", "admin", "secret", "backdoor", "shell", "pwn", "bof"
+        ));
         
         int functionCount = 0;
+        int skippedCount = 0;
+        
         for (Function function : functions) {
+            String funcName = function.getName();
+            String funcNameLower = funcName.toLowerCase();
+            boolean shouldSkip = false;
+            
+            // Always keep important functions
+            boolean isImportant = false;
+            for (String keep : keepFunctions) {
+                if (funcNameLower.contains(keep)) {
+                    isImportant = true;
+                    break;
+                }
+            }
+            
+            if (!isImportant) {
+                // Skip common library/system functions
+                for (String prefix : skipPrefixes) {
+                    if (funcName.startsWith(prefix)) {
+                        shouldSkip = true;
+                        break;
+                    }
+                }
+                
+                if (!shouldSkip) {
+                    for (String suffix : skipSuffixes) {
+                        if (funcName.endsWith(suffix) || funcName.contains(suffix)) {
+                            shouldSkip = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // Skip thunk functions
+                if (function.isThunk()) {
+                    shouldSkip = true;
+                }
+                
+                // Skip external functions
+                if (function.isExternal()) {
+                    shouldSkip = true;
+                }
+            }
+            
+            if (shouldSkip) {
+                skippedCount++;
+                continue;
+            }
+            
             try {
                 ghidra.app.decompiler.DecompileResults results = decomp.decompileFunction(function, 30, null);
                 if (results.decompileCompleted()) {
@@ -156,6 +220,8 @@ public class Decompile extends GhidraScript {
         }
 
         decomp.dispose();
+        
+        println("Decompiled " + functionCount + " functions, skipped " + skippedCount + " library/system functions");
         
         // Write to file
         String outputFilename = filename.replaceAll("\\.[^.]*$", "") + "_decompiled.c";
