@@ -1,7 +1,6 @@
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 
 interface DecompileResult {
   filename: string;
@@ -98,6 +97,18 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
     } catch {
       alert("Failed to copy to clipboard");
     }
+  };
+
+  const handleDownload = (code: string, filename: string) => {
+    const blob = new Blob([code], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename.replace(/\.[^/.]+$/, "_decompiled.java");
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const removeResult = (index: number) => {
@@ -279,50 +290,75 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
                     </div>
                     <div className="flex items-center gap-2">
                       {result.status === "success" && result.decompiled_code && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            handleCopy(result.decompiled_code!, index)
-                          }
-                          className="flex items-center gap-2"
-                        >
-                          {copiedIndex === index ? (
-                            <>
-                              <svg
-                                className="h-4 w-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                              Copied!
-                            </>
-                          ) : (
-                            <>
-                              <svg
-                                className="h-4 w-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                />
-                              </svg>
-                              Copy
-                            </>
-                          )}
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              handleCopy(result.decompiled_code!, index)
+                            }
+                            className="flex items-center gap-2"
+                          >
+                            {copiedIndex === index ? (
+                              <>
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                  />
+                                </svg>
+                                Copy
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              handleDownload(result.decompiled_code!, result.filename)
+                            }
+                            className="flex items-center gap-2"
+                          >
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                              />
+                            </svg>
+                            Download
+                          </Button>
+                        </>
                       )}
                       <Button
                         variant="outline"
@@ -349,11 +385,11 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
                 </CardHeader>
                 <CardContent>
                   {result.status === "success" ? (
-                    <Textarea
-                      value={result.decompiled_code}
-                      readOnly
-                      className="min-h-96 font-mono text-sm"
-                    />
+                    <div className="relative max-h-[600px] overflow-auto rounded-md border bg-slate-950 p-4">
+                      <pre className="text-sm text-slate-50">
+                        <code>{result.decompiled_code}</code>
+                      </pre>
+                    </div>
                   ) : (
                     <p className="text-red-600">{result.error}</p>
                   )}
