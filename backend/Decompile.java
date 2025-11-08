@@ -128,50 +128,6 @@ public class Decompile extends GhidraScript {
             decompiledCode.append("These functions may lead to: Buffer Overflow, Format String, Command Injection\n");
         }
         
-        // ==== STRINGS (Optimized for AI) ====
-        decompiledCode.append("\n--- Strings Found in Binary ---\n");
-        Memory memory = currentProgram.getMemory();
-        Set<String> foundStrings = new TreeSet<>();
-        
-        for (MemoryBlock block : memory.getBlocks()) {
-            if (block.isInitialized() && (block.getName().contains("data") || block.getName().contains("rodata") || block.getName().contains("text"))) {
-                Address addr = block.getStart();
-                Address endAddr = block.getEnd();
-                
-                while (addr != null && addr.compareTo(endAddr) < 0) {
-                    Data data = getDataAt(addr);
-                    if (data != null && data.hasStringValue()) {
-                        String str = data.getDefaultValueRepresentation();
-                        // Filter: min 5 chars, max 200 chars, printable ASCII
-                        if (str != null && str.length() >= 5 && str.length() <= 200) {
-                            // Remove quotes and check if meaningful
-                            String clean = str.replace("\"", "").trim();
-                            if (clean.matches(".*[a-zA-Z]{3,}.*")) { // At least 3 consecutive letters
-                                foundStrings.add(String.format("[0x%s] %s", addr.toString(), str));
-                            }
-                        }
-                        addr = data.getMaxAddress().next();
-                    } else {
-                        addr = addr.next();
-                    }
-                }
-            }
-        }
-        
-        if (foundStrings.isEmpty()) {
-            decompiledCode.append("No significant strings found\n");
-        } else {
-            int stringCount = 0;
-            for (String str : foundStrings) {
-                decompiledCode.append("  ").append(str).append("\n");
-                stringCount++;
-                if (stringCount >= 100) { // Reduced limit for AI
-                    decompiledCode.append("  ... (").append(foundStrings.size() - 100).append(" more strings omitted for brevity)\n");
-                    break;
-                }
-            }
-        }
-        
         decompiledCode.append("\n================================================================================\n");
         decompiledCode.append("*/\n\n");
 
@@ -189,29 +145,6 @@ public class Decompile extends GhidraScript {
                 if (results.decompileCompleted()) {
                     decompiledCode.append("// Function: ").append(function.getName()).append("\n");
                     decompiledCode.append("// Address: ").append(function.getEntryPoint()).append("\n");
-                    
-                    // Add cross-references (where this function is called from)
-                    Reference[] refs = getReferencesTo(function.getEntryPoint());
-                    if (refs.length > 0) {
-                        decompiledCode.append("// Called from: ");
-                        int refCount = 0;
-                        for (Reference ref : refs) {
-                            if (refCount > 0) decompiledCode.append(", ");
-                            Function caller = getFunctionContaining(ref.getFromAddress());
-                            if (caller != null) {
-                                decompiledCode.append(caller.getName());
-                            } else {
-                                decompiledCode.append("0x").append(ref.getFromAddress().toString());
-                            }
-                            refCount++;
-                            if (refCount >= 5) {
-                                decompiledCode.append("...");
-                                break;
-                            }
-                        }
-                        decompiledCode.append("\n");
-                    }
-                    
                     decompiledCode.append(results.getDecompiledFunction().getC()).append("\n\n");
                     functionCount++;
                 } else {
