@@ -65,7 +65,8 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
     });
 
     try {
-      const response = await fetch('http://localhost:5000/api/decompile', {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+      const response = await fetch(`${apiBaseUrl}/api/decompile`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
