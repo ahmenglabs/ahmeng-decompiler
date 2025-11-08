@@ -102,20 +102,38 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors cursor-pointer ${
+                  dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
                 }`}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
               >
-                <Textarea
-                  placeholder="Drag and drop files here, or click to select files..."
-                  className="min-h-32 resize-none cursor-pointer"
-                  readOnly
-                  onClick={() => fileInputRef.current?.click()}
-                />
+                <div className="flex flex-col items-center gap-4">
+                  <svg 
+                    className="w-16 h-16 text-gray-400" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" 
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-lg font-medium text-gray-700">
+                      Drag and drop files here, or click to select files
+                    </p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Supports all file types and sizes
+                    </p>
+                  </div>
+                </div>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -123,17 +141,32 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
                   onChange={handleFileSelect}
                   className="hidden"
                 />
-                <p className="text-sm text-gray-500 mt-2">
-                  Supports all file types and sizes
-                </p>
               </div>
 
               {files.length > 0 && (
                 <div className="space-y-2">
                   <h3 className="font-medium">Selected Files:</h3>
                   {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded">
-                      <span className="text-sm">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    <div key={index} className="flex items-center justify-between bg-gray-100 p-3 rounded hover:bg-gray-200 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <svg 
+                          className="w-8 h-8 text-blue-500 flex-shrink-0" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2} 
+                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" 
+                          />
+                        </svg>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{file.name}</span>
+                          <span className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                        </div>
+                      </div>
                       <Button
                         type="button"
                         variant="outline"

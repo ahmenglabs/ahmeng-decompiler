@@ -57,16 +57,27 @@ def require_auth(f):
 def decompile_with_ghidra(file_path, output_dir):
     """Decompile binary using Ghidra CLI"""
     try:
+        # Get the script directory (where Decompile.java is located)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        decompile_script = os.path.join(script_dir, 'Decompile.java')
+        
         # Ghidra headless command
         cmd = [
             '/ghidra_11.4.2_PUBLIC/support/analyzeHeadless',
             output_dir,
             'TempProject',
             '-import', file_path,
-            '-postScript', 'Decompile.java',
+            '-postScript', decompile_script,
+            output_dir,
             '-deleteProject'
         ]
+        
+        print(f"Running Ghidra command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        print(f"Ghidra stdout: {result.stdout}")
+        print(f"Ghidra stderr: {result.stderr}")
+        print(f"Ghidra return code: {result.returncode}")
+        
         return result.stdout, result.stderr, result.returncode
     except subprocess.TimeoutExpired:
         return None, "Decompilation timed out", 1
@@ -119,24 +130,46 @@ def decompile():
                 # Decompile in background thread
                 def process_file():
                     stdout, stderr, returncode = decompile_with_ghidra(file_path, output_dir)
-                    if returncode == 0:
-                        # Read decompiled code
-                        decompiled_file = os.path.join(output_dir, f"{os.path.splitext(filename)[0]}.c")
-                        if os.path.exists(decompiled_file):
-                            with open(decompiled_file, 'r') as f:
+                    
+                    # Look for the decompiled file
+                    base_name = os.path.splitext(filename)[0]
+                    possible_files = [
+                        os.path.join(output_dir, f"{base_name}_decompiled.c"),
+                        os.path.join(output_dir, f"{base_name}.c"),
+                    ]
+                    
+                    # Also check all .c files in output directory
+                    try:
+                        for file in os.listdir(output_dir):
+                            if file.endswith('.c'):
+                                possible_files.append(os.path.join(output_dir, file))
+                    except Exception:
+                        pass
+                    
+                    decompiled_code = None
+                    decompiled_file = None
+                    
+                    for possible_file in possible_files:
+                        if os.path.exists(possible_file):
+                            decompiled_file = possible_file
+                            with open(possible_file, 'r', encoding='utf-8', errors='ignore') as f:
                                 decompiled_code = f.read()
-                        else:
-                            decompiled_code = "Decompiled file not found"
+                            break
+                    
+                    if decompiled_code and len(decompiled_code.strip()) > 0:
                         results.append({
                             'filename': filename,
                             'status': 'success',
                             'decompiled_code': decompiled_code
                         })
                     else:
+                        error_msg = f"Decompiled file not found. Searched in: {output_dir}\n"
+                        error_msg += f"Files in directory: {os.listdir(output_dir) if os.path.exists(output_dir) else 'Directory does not exist'}\n"
+                        error_msg += f"Ghidra output:\n{stdout}\n{stderr}"
                         results.append({
                             'filename': filename,
                             'status': 'error',
-                            'error': stderr
+                            'error': error_msg
                         })
 
                 thread = threading.Thread(target=process_file)
