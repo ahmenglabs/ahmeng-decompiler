@@ -20,6 +20,7 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
   const [results, setResults] = useState<DecompileResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -84,6 +85,16 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
       alert("Failed to connect to server");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCopy = async (code: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch {
+      alert("Failed to copy to clipboard");
     }
   };
 
@@ -210,16 +221,64 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
             {results.map((result, index) => (
               <Card key={index}>
                 <CardHeader>
-                  <CardTitle
-                    className={
-                      result.status === "error"
-                        ? "text-red-600"
-                        : "text-green-600"
-                    }
-                  >
-                    {result.filename} -{" "}
-                    {result.status === "success" ? "Success" : "Error"}
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle
+                      className={
+                        result.status === "error"
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }
+                    >
+                      {result.filename} -{" "}
+                      {result.status === "success" ? "Success" : "Error"}
+                    </CardTitle>
+                    {result.status === "success" && result.decompiled_code && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleCopy(result.decompiled_code!, index)
+                        }
+                        className="flex items-center gap-2"
+                      >
+                        {copiedIndex === index ? (
+                          <>
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              />
+                            </svg>
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {result.status === "success" ? (
