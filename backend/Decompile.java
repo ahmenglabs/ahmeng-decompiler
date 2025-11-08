@@ -1,244 +1,36 @@
 import ghidra.app.script.GhidraScript;
-import ghidra.program.model.listing.*;
-import ghidra.program.model.symbol.*;
-import ghidra.program.model.address.*;
-import ghidra.program.model.data.*;
-import ghidra.program.model.mem.*;
-import ghidra.program.model.reloc.*;
-import java.io.*;
-import java.util.*;
+import ghidra.app.util.Option;
+import ghidra.app.util.exporter.CppExporter;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Decompile extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        // Get output directory from script arguments, or use current directory
-        String outputDir = ".";
+        // Get output file path from script arguments
         String[] args = getScriptArgs();
-        if (args != null && args.length > 0) {
-            outputDir = args[0];
+        if (args == null || args.length == 0) {
+            println("Error: Output file path required as argument");
+            return;
         }
         
-        String filename = currentProgram.getName();
-        println("Decompiling: " + filename);
-        println("Output directory: " + outputDir);
-
-        StringBuilder decompiledCode = new StringBuilder();
+        File outputFile = new File(args[0]);
         
-        // ==== BINARY METADATA ====
-        decompiledCode.append("/*\n");
-        decompiledCode.append("================================================================================\n");
-        decompiledCode.append("BINARY ANALYSIS REPORT - CTF Edition\n");
-        decompiledCode.append("================================================================================\n");
-        decompiledCode.append("File: ").append(filename).append("\n");
-        decompiledCode.append("Architecture: ").append(currentProgram.getLanguage().getProcessor()).append("\n");
-        decompiledCode.append("Endian: ").append(currentProgram.getLanguage().isBigEndian() ? "Big" : "Little").append("\n");
-        decompiledCode.append("Compiler: ").append(currentProgram.getCompiler()).append("\n");
-        decompiledCode.append("Executable Format: ").append(currentProgram.getExecutableFormat()).append("\n");
-        decompiledCode.append("Image Base: ").append(currentProgram.getImageBase()).append("\n");
+        println("Decompiling: " + currentProgram.getName());
+        println("Output file: " + outputFile.getAbsolutePath());
         
-        // ==== SECURITY PROTECTIONS ====
-        decompiledCode.append("\n--- Security Protections ---\n");
-        decompiledCode.append("Relocatable: ").append(currentProgram.getRelocationTable().getSize() > 0 ? "Yes (PIE)" : "No").append("\n");
+        // Use Ghidra's CppExporter (same as Dogbolt.org)
+        CppExporter cppExporter = new CppExporter();
+        List<Option> options = new ArrayList<Option>();
+        options.add(new Option(CppExporter.CREATE_HEADER_FILE, true));
+        cppExporter.setOptions(options);
+        cppExporter.setExporterServiceProvider(state.getTool());
         
-        // Check for stack canary
-        boolean hasCanary = false;
-        SymbolIterator symbols = currentProgram.getSymbolTable().getAllSymbols(false);
-        while (symbols.hasNext()) {
-            Symbol sym = symbols.next();
-            String name = sym.getName().toLowerCase();
-            if (name.contains("stack_chk") || name.contains("canary")) {
-                hasCanary = true;
-                break;
-            }
-        }
-        decompiledCode.append("Stack Canary: ").append(hasCanary ? "Yes" : "No/Unknown").append("\n");
+        // Export the decompiled code
+        cppExporter.export(outputFile, currentProgram, null, monitor);
         
-        // Check NX bit (usually enabled in modern binaries)
-        MemoryBlock textBlock = currentProgram.getMemory().getBlock(".text");
-        if (textBlock != null) {
-            decompiledCode.append("NX (Non-Executable Stack): ").append(textBlock.isExecute() ? "Text is executable" : "Unknown").append("\n");
-        }
-        
-        // ==== ENTRY POINT ====
-        decompiledCode.append("\n--- Entry Point ---\n");
-        Function entryFunc = currentProgram.getFunctionManager().getFunctionAt(currentProgram.getImageBase().add(currentProgram.getAddressFactory().getDefaultAddressSpace().getMinAddress().getOffset()));
-        if (entryFunc == null) {
-            // Try to find main function
-            SymbolTable symTable = currentProgram.getSymbolTable();
-            SymbolIterator mainSyms = symTable.getSymbols("main");
-            if (mainSyms.hasNext()) {
-                entryFunc = currentProgram.getFunctionManager().getFunctionAt(mainSyms.next().getAddress());
-            }
-        }
-        if (entryFunc != null) {
-            decompiledCode.append("Entry Function: ").append(entryFunc.getName()).append(" @ ").append(entryFunc.getEntryPoint()).append("\n");
-        } else {
-            decompiledCode.append("Entry point: ").append(currentProgram.getImageBase()).append("\n");
-        }
-        
-        // ==== MEMORY SECTIONS ====
-        decompiledCode.append("\n--- Memory Sections ---\n");
-        for (MemoryBlock block : memory.getBlocks()) {
-            decompiledCode.append(String.format("  %s: 0x%s - 0x%s (%d bytes) [%s%s%s]\n",
-                block.getName(),
-                block.getStart().toString(),
-                block.getEnd().toString(),
-                block.getSize(),
-                block.isRead() ? "R" : "-",
-                block.isWrite() ? "W" : "-",
-                block.isExecute() ? "X" : "-"
-            ));
-        }
-        
-        // ==== IMPORTED FUNCTIONS ====
-        decompiledCode.append("\n--- Imported Functions ---\n");
-        SymbolIterator extSymbols = symTable.getExternalSymbols();
-        Set<String> imports = new TreeSet<>();
-        Set<String> dangerousFuncs = new HashSet<>(Arrays.asList(
-            "gets", "strcpy", "strcat", "sprintf", "scanf", "vsprintf",
-            "system", "exec", "popen", "strcpy", "strncpy", "memcpy",
-            "read", "fgets", "getenv", "printf", "fprintf", "snprintf"
-        ));
-        Set<String> foundDangerous = new TreeSet<>();
-        
-        while (extSymbols.hasNext()) {
-            Symbol sym = extSymbols.next();
-            if (sym.getSymbolType() == SymbolType.FUNCTION) {
-                String funcName = sym.getName();
-                imports.add(funcName);
-                if (dangerousFuncs.contains(funcName)) {
-                    foundDangerous.add(funcName);
-                }
-            }
-        }
-        if (imports.isEmpty()) {
-            decompiledCode.append("No external imports found\n");
-        } else {
-            for (String imp : imports) {
-                String marker = foundDangerous.contains(imp) ? " [DANGEROUS]" : "";
-                decompiledCode.append("  - ").append(imp).append(marker).append("\n");
-            }
-        }
-        
-        // ==== DANGEROUS FUNCTIONS SUMMARY ====
-        if (!foundDangerous.isEmpty()) {
-            decompiledCode.append("\n!!! POTENTIAL VULNERABILITIES DETECTED !!!\n");
-            decompiledCode.append("Dangerous functions found: ").append(String.join(", ", foundDangerous)).append("\n");
-            decompiledCode.append("These functions may lead to: Buffer Overflow, Format String, Command Injection\n");
-        }
-        
-        decompiledCode.append("\n================================================================================\n");
-        decompiledCode.append("*/\n\n");
-
-        // Get the decompiler
-        ghidra.app.decompiler.DecompInterface decomp = new ghidra.app.decompiler.DecompInterface();
-        decomp.openProgram(currentProgram);
-
-        // Filter functions - only decompile relevant ones for CTF
-        FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
-        Set<String> skipPrefixes = new HashSet<>(Arrays.asList(
-            "_init", "_fini", "_start", "__libc", "__cxa", "frame_dummy", 
-            "register_tm_clones", "deregister_tm_clones", "__do_global",
-            "_dl_", "__stack_chk", "__assert", "_ITM_", "__gmon", "asan.",
-            "__sanitizer", "__tsan", "FUN_", "thunk_", "__x86.", "__i686."
-        ));
-        
-        Set<String> skipSuffixes = new HashSet<>(Arrays.asList(
-            ".plt", ".got", "@plt", "@GLIBC", ".isra", ".part", ".cold"
-        ));
-        
-        Set<String> keepFunctions = new HashSet<>(Arrays.asList(
-            "main", "vuln", "win", "flag", "check", "validate", "auth",
-            "login", "admin", "secret", "backdoor", "shell", "pwn", "bof"
-        ));
-        
-        int functionCount = 0;
-        int skippedCount = 0;
-        
-        for (Function function : functions) {
-            String funcName = function.getName();
-            String funcNameLower = funcName.toLowerCase();
-            boolean shouldSkip = false;
-            
-            // Always keep important functions
-            boolean isImportant = false;
-            for (String keep : keepFunctions) {
-                if (funcNameLower.contains(keep)) {
-                    isImportant = true;
-                    break;
-                }
-            }
-            
-            if (!isImportant) {
-                // Skip common library/system functions
-                for (String prefix : skipPrefixes) {
-                    if (funcName.startsWith(prefix)) {
-                        shouldSkip = true;
-                        break;
-                    }
-                }
-                
-                if (!shouldSkip) {
-                    for (String suffix : skipSuffixes) {
-                        if (funcName.endsWith(suffix) || funcName.contains(suffix)) {
-                            shouldSkip = true;
-                            break;
-                        }
-                    }
-                }
-                
-                // Skip thunk functions
-                if (function.isThunk()) {
-                    shouldSkip = true;
-                }
-                
-                // Skip external functions
-                if (function.isExternal()) {
-                    shouldSkip = true;
-                }
-            }
-            
-            if (shouldSkip) {
-                skippedCount++;
-                continue;
-            }
-            
-            try {
-                ghidra.app.decompiler.DecompileResults results = decomp.decompileFunction(function, 30, null);
-                if (results.decompileCompleted()) {
-                    decompiledCode.append("// Function: ").append(function.getName()).append("\n");
-                    decompiledCode.append("// Address: ").append(function.getEntryPoint()).append("\n");
-                    decompiledCode.append(results.getDecompiledFunction().getC()).append("\n\n");
-                    functionCount++;
-                } else {
-                    println("Failed to decompile function: " + function.getName());
-                }
-            } catch (Exception e) {
-                println("Error decompiling function " + function.getName() + ": " + e.getMessage());
-            }
-        }
-
-        decomp.dispose();
-        
-        println("Decompiled " + functionCount + " functions, skipped " + skippedCount + " library/system functions");
-        
-        // Write to file
-        String outputFilename = filename.replaceAll("\\.[^.]*$", "") + "_decompiled.c";
-        File outputFile = new File(outputDir, outputFilename);
-        
-        println("Writing to: " + outputFile.getAbsolutePath());
-        
-        try (FileWriter writer = new FileWriter(outputFile)) {
-            if (decompiledCode.length() > 0) {
-                writer.write(decompiledCode.toString());
-                println("Successfully wrote " + functionCount + " functions to " + outputFilename);
-            } else {
-                writer.write("// No functions found to decompile\n");
-                println("Warning: No functions found to decompile");
-            }
-        }
-
-        println("Decompilation completed for " + filename);
+        println("Decompilation completed successfully");
     }
 }
