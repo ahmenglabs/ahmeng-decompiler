@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
+import React, { useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 
 interface DecompileResult {
   filename: string;
-  status: 'success' | 'error';
+  status: "success" | "error";
   decompiled_code?: string;
   error?: string;
 }
@@ -25,9 +25,9 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
+    if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true);
-    } else if (e.type === 'dragleave') {
+    } else if (e.type === "dragleave") {
       setDragActive(false);
     }
   };
@@ -39,19 +39,19 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const newFiles = Array.from(e.dataTransfer.files);
-      setFiles(prev => [...prev, ...newFiles]);
+      setFiles((prev) => [...prev, ...newFiles]);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
-      setFiles(prev => [...prev, ...newFiles]);
+      setFiles((prev) => [...prev, ...newFiles]);
     }
   };
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,16 +60,16 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
 
     setLoading(true);
     const formData = new FormData();
-    files.forEach(file => {
-      formData.append('files', file);
+    files.forEach((file) => {
+      formData.append("files", file);
     });
 
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "";
       const response = await fetch(`${apiBaseUrl}/api/decompile`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
@@ -78,10 +78,10 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
       if (response.ok) {
         setResults(data.results);
       } else {
-        alert(data.error || 'An error occurred');
+        alert(data.error || "An error occurred");
       }
     } catch {
-      alert('Failed to connect to server');
+      alert("Failed to connect to server");
     } finally {
       setLoading(false);
     }
@@ -89,10 +89,12 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8 flex items-center justify-between">
           <h1 className="text-3xl font-bold">Ahmeng Decompiler</h1>
-          <Button onClick={onLogout} variant="outline">Logout</Button>
+          <Button onClick={onLogout} variant="outline">
+            Logout
+          </Button>
         </div>
 
         <Card className="mb-8">
@@ -102,8 +104,10 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div
-                className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors cursor-pointer ${
-                  dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+                className={`cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-colors ${
+                  dragActive
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-300 hover:border-gray-400"
                 }`}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
@@ -112,24 +116,24 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <div className="flex flex-col items-center gap-4">
-                  <svg 
-                    className="w-16 h-16 text-gray-400" 
-                    fill="none" 
-                    stroke="currentColor" 
+                  <svg
+                    className="h-16 w-16 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" 
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                     />
                   </svg>
                   <div>
                     <p className="text-lg font-medium text-gray-700">
                       Drag and drop files here, or click to select files
                     </p>
-                    <p className="text-sm text-gray-500 mt-2">
+                    <p className="mt-2 text-sm text-gray-500">
                       Supports all file types and sizes
                     </p>
                   </div>
@@ -147,24 +151,31 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
                 <div className="space-y-2">
                   <h3 className="font-medium">Selected Files:</h3>
                   {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-100 p-3 rounded hover:bg-gray-200 transition-colors">
+                    <div
+                      key={index}
+                      className="flex items-center justify-between rounded bg-gray-100 p-3 transition-colors hover:bg-gray-200"
+                    >
                       <div className="flex items-center gap-3">
-                        <svg 
-                          className="w-8 h-8 text-blue-500 flex-shrink-0" 
-                          fill="none" 
-                          stroke="currentColor" 
+                        <svg
+                          className="h-8 w-8 flex-shrink-0 text-blue-500"
+                          fill="none"
+                          stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" 
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
                           />
                         </svg>
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium">{file.name}</span>
-                          <span className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                          <span className="text-sm font-medium">
+                            {file.name}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                          </span>
                         </div>
                       </div>
                       <Button
@@ -180,8 +191,14 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
                 </div>
               )}
 
-              <Button type="submit" disabled={loading || files.length === 0} className="w-full">
-                {loading ? 'Decompiling...' : `Decompile ${files.length} File${files.length !== 1 ? 's' : ''}`}
+              <Button
+                type="submit"
+                disabled={loading || files.length === 0}
+                className="w-full"
+              >
+                {loading
+                  ? "Decompiling..."
+                  : `Decompile ${files.length} File${files.length !== 1 ? "s" : ""}`}
               </Button>
             </form>
           </CardContent>
@@ -193,12 +210,19 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
             {results.map((result, index) => (
               <Card key={index}>
                 <CardHeader>
-                  <CardTitle className={result.status === 'error' ? 'text-red-600' : 'text-green-600'}>
-                    {result.filename} - {result.status === 'success' ? 'Success' : 'Error'}
+                  <CardTitle
+                    className={
+                      result.status === "error"
+                        ? "text-red-600"
+                        : "text-green-600"
+                    }
+                  >
+                    {result.filename} -{" "}
+                    {result.status === "success" ? "Success" : "Error"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {result.status === 'success' ? (
+                  {result.status === "success" ? (
                     <Textarea
                       value={result.decompiled_code}
                       readOnly

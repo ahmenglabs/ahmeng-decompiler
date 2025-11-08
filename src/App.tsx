@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './components/Login';
-import Decompiler from './components/Decompiler';
+import { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import Login from "./components/Login";
+import Decompiler from "./components/Decompiler";
 
 function App() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
     // Check for existing token on app load
-    const savedToken = localStorage.getItem('jwt_token');
+    const savedToken = localStorage.getItem("jwt_token");
     if (savedToken) {
       setToken(savedToken);
     }
@@ -19,7 +24,7 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('jwt_token');
+    localStorage.removeItem("jwt_token");
     setToken(null);
   };
 
