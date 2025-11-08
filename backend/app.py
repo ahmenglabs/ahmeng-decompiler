@@ -59,15 +59,15 @@ def decompile_with_ghidra(file_path, output_dir):
     try:
         # Get the script directory (where Decompile.java is located)
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        decompile_script = os.path.join(script_dir, 'Decompile.java')
         
-        # Ghidra headless command
+        # Ghidra headless command with -scriptPath to specify where Decompile.java is
         cmd = [
             '/ghidra_11.4.2_PUBLIC/support/analyzeHeadless',
             output_dir,
             'TempProject',
             '-import', file_path,
-            '-postScript', decompile_script,
+            '-scriptPath', script_dir,
+            '-postScript', 'Decompile.java',
             output_dir,
             '-deleteProject'
         ]
