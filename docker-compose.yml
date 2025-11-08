@@ -4,11 +4,6 @@ services:
     ports:
       - "5000:5000" # Backend Flask API
       - "5173:5173" # Frontend Vite dev server
-    environment:
-      - JWT_SECRET=your-jwt-secret-key-here-change-this
-      - STATIC_AUTH_TOKEN=your-static-auth-token-here-change-this
-      - JWT_EXPIRATION_HOURS=24
-      - MAX_CONTENT_LENGTH=524288000
     volumes:
       - ./.env:/app/backend/.env:ro
       - uploads:/tmp/uploads
