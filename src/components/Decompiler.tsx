@@ -98,6 +98,14 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
     }
   };
 
+  const removeResult = (index: number) => {
+    setResults((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllResults = () => {
+    setResults([]);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="mx-auto max-w-6xl">
@@ -217,7 +225,30 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
 
         {results.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold">Results</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">Results</h2>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={clearAllResults}
+                className="flex items-center gap-2"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                Clear All Results
+              </Button>
+            </div>
             {results.map((result, index) => (
               <Card key={index}>
                 <CardHeader>
@@ -232,52 +263,74 @@ function Decompiler({ token, onLogout }: DecompilerProps) {
                       {result.filename} -{" "}
                       {result.status === "success" ? "Success" : "Error"}
                     </CardTitle>
-                    {result.status === "success" && result.decompiled_code && (
+                    <div className="flex items-center gap-2">
+                      {result.status === "success" && result.decompiled_code && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleCopy(result.decompiled_code!, index)
+                          }
+                          className="flex items-center gap-2"
+                        >
+                          {copiedIndex === index ? (
+                            <>
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                />
+                              </svg>
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          handleCopy(result.decompiled_code!, index)
-                        }
-                        className="flex items-center gap-2"
+                        onClick={() => removeResult(index)}
+                        className="flex items-center gap-2 text-red-600 hover:bg-red-50"
                       >
-                        {copiedIndex === index ? (
-                          <>
-                            <svg
-                              className="h-4 w-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <svg
-                              className="h-4 w-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                              />
-                            </svg>
-                            Copy
-                          </>
-                        )}
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
