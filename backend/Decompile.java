@@ -2,7 +2,11 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.symbol.*;
 import ghidra.program.model.address.*;
+import ghidra.program.model.data.*;
+import ghidra.program.model.mem.*;
+import ghidra.program.model.reloc.*;
 import java.io.*;
+import java.util.*;
 
 public class Decompile extends GhidraScript {
 
@@ -19,13 +23,164 @@ public class Decompile extends GhidraScript {
         println("Decompiling: " + filename);
         println("Output directory: " + outputDir);
 
+        StringBuilder decompiledCode = new StringBuilder();
+        
+        // ==== BINARY METADATA ====
+        decompiledCode.append("/*\n");
+        decompiledCode.append("================================================================================\n");
+        decompiledCode.append("BINARY ANALYSIS REPORT - CTF Edition\n");
+        decompiledCode.append("================================================================================\n");
+        decompiledCode.append("File: ").append(filename).append("\n");
+        decompiledCode.append("Architecture: ").append(currentProgram.getLanguage().getProcessor()).append("\n");
+        decompiledCode.append("Endian: ").append(currentProgram.getLanguage().isBigEndian() ? "Big" : "Little").append("\n");
+        decompiledCode.append("Compiler: ").append(currentProgram.getCompiler()).append("\n");
+        decompiledCode.append("Executable Format: ").append(currentProgram.getExecutableFormat()).append("\n");
+        decompiledCode.append("Image Base: ").append(currentProgram.getImageBase()).append("\n");
+        
+        // ==== SECURITY PROTECTIONS ====
+        decompiledCode.append("\n--- Security Protections ---\n");
+        decompiledCode.append("Relocatable: ").append(currentProgram.getRelocationTable().getSize() > 0 ? "Yes (PIE)" : "No").append("\n");
+        
+        // Check for stack canary
+        boolean hasCanary = false;
+        SymbolIterator symbols = currentProgram.getSymbolTable().getAllSymbols(false);
+        while (symbols.hasNext()) {
+            Symbol sym = symbols.next();
+            String name = sym.getName().toLowerCase();
+            if (name.contains("stack_chk") || name.contains("canary")) {
+                hasCanary = true;
+                break;
+            }
+        }
+        decompiledCode.append("Stack Canary: ").append(hasCanary ? "Yes" : "No/Unknown").append("\n");
+        
+        // Check NX bit (usually enabled in modern binaries)
+        MemoryBlock textBlock = currentProgram.getMemory().getBlock(".text");
+        if (textBlock != null) {
+            decompiledCode.append("NX (Non-Executable Stack): ").append(textBlock.isExecute() ? "Text is executable" : "Unknown").append("\n");
+        }
+        
+        // ==== ENTRY POINT ====
+        decompiledCode.append("\n--- Entry Point ---\n");
+        Function entryFunc = currentProgram.getFunctionManager().getFunctionAt(currentProgram.getImageBase().add(currentProgram.getAddressFactory().getDefaultAddressSpace().getMinAddress().getOffset()));
+        if (entryFunc == null) {
+            // Try to find main function
+            SymbolTable symTable = currentProgram.getSymbolTable();
+            SymbolIterator mainSyms = symTable.getSymbols("main");
+            if (mainSyms.hasNext()) {
+                entryFunc = currentProgram.getFunctionManager().getFunctionAt(mainSyms.next().getAddress());
+            }
+        }
+        if (entryFunc != null) {
+            decompiledCode.append("Entry Function: ").append(entryFunc.getName()).append(" @ ").append(entryFunc.getEntryPoint()).append("\n");
+        } else {
+            decompiledCode.append("Entry point: ").append(currentProgram.getImageBase()).append("\n");
+        }
+        
+        // ==== MEMORY SECTIONS ====
+        decompiledCode.append("\n--- Memory Sections ---\n");
+        for (MemoryBlock block : memory.getBlocks()) {
+            decompiledCode.append(String.format("  %s: 0x%s - 0x%s (%d bytes) [%s%s%s]\n",
+                block.getName(),
+                block.getStart().toString(),
+                block.getEnd().toString(),
+                block.getSize(),
+                block.isRead() ? "R" : "-",
+                block.isWrite() ? "W" : "-",
+                block.isExecute() ? "X" : "-"
+            ));
+        }
+        
+        // ==== IMPORTED FUNCTIONS ====
+        decompiledCode.append("\n--- Imported Functions ---\n");
+        SymbolIterator extSymbols = symTable.getExternalSymbols();
+        Set<String> imports = new TreeSet<>();
+        Set<String> dangerousFuncs = new HashSet<>(Arrays.asList(
+            "gets", "strcpy", "strcat", "sprintf", "scanf", "vsprintf",
+            "system", "exec", "popen", "strcpy", "strncpy", "memcpy",
+            "read", "fgets", "getenv", "printf", "fprintf", "snprintf"
+        ));
+        Set<String> foundDangerous = new TreeSet<>();
+        
+        while (extSymbols.hasNext()) {
+            Symbol sym = extSymbols.next();
+            if (sym.getSymbolType() == SymbolType.FUNCTION) {
+                String funcName = sym.getName();
+                imports.add(funcName);
+                if (dangerousFuncs.contains(funcName)) {
+                    foundDangerous.add(funcName);
+                }
+            }
+        }
+        if (imports.isEmpty()) {
+            decompiledCode.append("No external imports found\n");
+        } else {
+            for (String imp : imports) {
+                String marker = foundDangerous.contains(imp) ? " [DANGEROUS]" : "";
+                decompiledCode.append("  - ").append(imp).append(marker).append("\n");
+            }
+        }
+        
+        // ==== DANGEROUS FUNCTIONS SUMMARY ====
+        if (!foundDangerous.isEmpty()) {
+            decompiledCode.append("\n!!! POTENTIAL VULNERABILITIES DETECTED !!!\n");
+            decompiledCode.append("Dangerous functions found: ").append(String.join(", ", foundDangerous)).append("\n");
+            decompiledCode.append("These functions may lead to: Buffer Overflow, Format String, Command Injection\n");
+        }
+        
+        // ==== STRINGS (Optimized for AI) ====
+        decompiledCode.append("\n--- Strings Found in Binary ---\n");
+        Memory memory = currentProgram.getMemory();
+        Set<String> foundStrings = new TreeSet<>();
+        
+        for (MemoryBlock block : memory.getBlocks()) {
+            if (block.isInitialized() && (block.getName().contains("data") || block.getName().contains("rodata") || block.getName().contains("text"))) {
+                Address addr = block.getStart();
+                Address endAddr = block.getEnd();
+                
+                while (addr != null && addr.compareTo(endAddr) < 0) {
+                    Data data = getDataAt(addr);
+                    if (data != null && data.hasStringValue()) {
+                        String str = data.getDefaultValueRepresentation();
+                        // Filter: min 5 chars, max 200 chars, printable ASCII
+                        if (str != null && str.length() >= 5 && str.length() <= 200) {
+                            // Remove quotes and check if meaningful
+                            String clean = str.replace("\"", "").trim();
+                            if (clean.matches(".*[a-zA-Z]{3,}.*")) { // At least 3 consecutive letters
+                                foundStrings.add(String.format("[0x%s] %s", addr.toString(), str));
+                            }
+                        }
+                        addr = data.getMaxAddress().next();
+                    } else {
+                        addr = addr.next();
+                    }
+                }
+            }
+        }
+        
+        if (foundStrings.isEmpty()) {
+            decompiledCode.append("No significant strings found\n");
+        } else {
+            int stringCount = 0;
+            for (String str : foundStrings) {
+                decompiledCode.append("  ").append(str).append("\n");
+                stringCount++;
+                if (stringCount >= 100) { // Reduced limit for AI
+                    decompiledCode.append("  ... (").append(foundStrings.size() - 100).append(" more strings omitted for brevity)\n");
+                    break;
+                }
+            }
+        }
+        
+        decompiledCode.append("\n================================================================================\n");
+        decompiledCode.append("*/\n\n");
+
         // Get the decompiler
         ghidra.app.decompiler.DecompInterface decomp = new ghidra.app.decompiler.DecompInterface();
         decomp.openProgram(currentProgram);
 
         // Decompile all functions
         FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
-        StringBuilder decompiledCode = new StringBuilder();
         
         int functionCount = 0;
         for (Function function : functions) {
@@ -34,6 +189,29 @@ public class Decompile extends GhidraScript {
                 if (results.decompileCompleted()) {
                     decompiledCode.append("// Function: ").append(function.getName()).append("\n");
                     decompiledCode.append("// Address: ").append(function.getEntryPoint()).append("\n");
+                    
+                    // Add cross-references (where this function is called from)
+                    Reference[] refs = getReferencesTo(function.getEntryPoint());
+                    if (refs.length > 0) {
+                        decompiledCode.append("// Called from: ");
+                        int refCount = 0;
+                        for (Reference ref : refs) {
+                            if (refCount > 0) decompiledCode.append(", ");
+                            Function caller = getFunctionContaining(ref.getFromAddress());
+                            if (caller != null) {
+                                decompiledCode.append(caller.getName());
+                            } else {
+                                decompiledCode.append("0x").append(ref.getFromAddress().toString());
+                            }
+                            refCount++;
+                            if (refCount >= 5) {
+                                decompiledCode.append("...");
+                                break;
+                            }
+                        }
+                        decompiledCode.append("\n");
+                    }
+                    
                     decompiledCode.append(results.getDecompiledFunction().getC()).append("\n\n");
                     functionCount++;
                 } else {
