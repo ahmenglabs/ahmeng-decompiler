@@ -6,13 +6,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Java (required for Ghidra) - JDK 21
 RUN apt-get update && apt-get install -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y \
+    nodejs \
     openjdk-21-jdk \
     wget \
     unzip \
     python3 \
     python3-pip \
-    nodejs \
-    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install Ghidra
