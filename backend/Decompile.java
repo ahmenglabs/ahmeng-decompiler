@@ -16,7 +16,16 @@ public class Decompile extends GhidraScript {
             return;
         }
         
-        File outputFile = new File(args[0]);
+        File outputPath = new File(args[0]);
+        
+        // If the path is a directory, create a file inside it
+        File outputFile;
+        if (outputPath.isDirectory()) {
+            String filename = currentProgram.getName() + ".c";
+            outputFile = new File(outputPath, filename);
+        } else {
+            outputFile = outputPath;
+        }
         
         println("Decompiling: " + currentProgram.getName());
         println("Output file: " + outputFile.getAbsolutePath());
